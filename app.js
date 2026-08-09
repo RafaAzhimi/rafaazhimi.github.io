@@ -1,3 +1,88 @@
+// --- FIREBASE INITIALIZATION & BRIDGE ---
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { 
+  getAuth, 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  onAuthStateChanged, 
+  signOut 
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { 
+  getFirestore, 
+  collection, 
+  addDoc, 
+  getDocs, 
+  doc, 
+  updateDoc, 
+  deleteDoc, 
+  query, 
+  where, 
+  orderBy 
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyA3pgUsvYHHqyWP9Zy7GIUvi0UWTeHV6dA",
+  authDomain: "rafaazhimi-github-io.firebaseapp.com",
+  projectId: "rafaazhimi-github-io",
+  storageBucket: "rafaazhimi-github-io.firebasestorage.app",
+  messagingSenderId: "943032630083",
+  appId: "1:943032630083:web:ffc1cfb4f4a67102ff8df6",
+  measurementId: "G-35E0DPLQZ2"
+};
+
+const firebaseApp = initializeApp(firebaseConfig);
+const auth = getAuth(firebaseApp);
+const db = getFirestore(firebaseApp);
+
+// Bridge Firebase functions to the window object expected by your script
+window.communityFirebase = {
+  auth: {
+    signUp: async ({ username, password }) => {
+      const email = `${username.toLowerCase()}@app.local`;
+      const res = await createUserWithEmailAndPassword(auth, email, password);
+      return { uid: res.user.uid, username };
+    },
+    signIn: async ({ username, password }) => {
+      const email = `${username.toLowerCase()}@app.local`;
+      const res = await signInWithEmailAndPassword(auth, email, password);
+      return { uid: res.user.uid, username };
+    },
+    signOut: () => signOut(auth),
+    onAuthStateChanged: (callback) => onAuthStateChanged(auth, callback)
+  },
+  firestore: {
+    listDiscussions: async () => {
+      const q = query(collection(db, "discussions"), orderBy("createdAt", "desc"));
+      const snap = await getDocs(q);
+      return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    },
+    createDiscussion: async (data) => {
+      await addDoc(collection(db, "discussions"), data);
+    },
+    updateDiscussion: async (id, data) => {
+      await updateDoc(doc(db, "discussions", id), data);
+    },
+    deleteDiscussion: async (id) => {
+      await deleteDoc(doc(db, "discussions", id));
+    },
+    listComments: async (targetId) => {
+      const q = query(collection(db, "comments"), where("targetId", "==", targetId));
+      const snap = await getDocs(q);
+      return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    },
+    createComment: async (data) => {
+      await addDoc(collection(db, "comments"), data);
+    },
+    updateComment: async (id, data) => {
+      await updateDoc(doc(db, "comments", id), data);
+    },
+    deleteComment: async (id) => {
+      await deleteDoc(doc(db, "comments", id));
+    }
+  }
+};
+
+// --- YOUR EXISTING APP LOGIC ---
 (function () {
     "use strict";
 
