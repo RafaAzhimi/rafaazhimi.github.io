@@ -1,102 +1,164 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="en" data-theme="dark">
 
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Rafa Azhimi - Community</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="A minimal text-only community platform for posts and discussions." />
+    <title>Rafa Azhimi Community</title>
+    <link rel="icon" href="favicon.ico" />
     <link rel="stylesheet" href="style.css" />
 </head>
 
-<body class="dark-mode">
-    <header class="navbar">
-        <div class="nav-left">
-            <a href="#" class="logo">rafaazhimi</a>
-        </div>
-        <div class="nav-right">
-            <button class="nav-btn active" id="btn-posts">Posts</button>
-            <button class="nav-btn" id="btn-discussions">Discussions</button>
-            <button class="nav-btn" id="btn-settings">Settings</button>
+<body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-header">
+        <div class="nav-shell">
+            <a class="brand" href="#posts" aria-label="Rafa Azhimi community home">
+                <span class="brand-mark" aria-hidden="true">ra</span>
+                <span class="brand-name">rafaazhimi</span>
+            </a>
+
+            <nav class="tabs" aria-label="Primary navigation">
+                <button class="tab-button is-active" type="button" data-tab-target="posts">Posts</button>
+                <button class="tab-button" type="button" data-tab-target="discussions">Discussions</button>
+                <button class="tab-button" type="button" data-tab-target="settings">Settings</button>
+            </nav>
+
+            <span class="session-chip" id="session-chip">Guest</span>
         </div>
     </header>
 
-    <main class="container">
-
-        <section class="feed-view" id="posts-view">
-            <article class="card">
-                <div class="vote-sidebar">
-                    <button class="vote-btn">▲</button>
-                    <span class="vote-count">124</span>
-                    <button class="vote-btn">▼</button>
-                </div>
-                <div class="card-content">
-                    <div class="card-meta">
-                        Posted by <span class="author">rafaazhimi</span> • 2 hours ago
+    <main class="page-shell" id="main">
+        <div class="content-stack">
+            <section class="view is-active" id="posts-view" data-view="posts" aria-labelledby="posts-title">
+                <div class="view-heading">
+                    <div>
+                        <p class="eyebrow">Admin posts</p>
+                        <h1 id="posts-title">Posts</h1>
                     </div>
-                    <h2 class="card-title">Welcome to the website!</h2>
-                    <p class="card-text">
-                        This is an official post published via Decap CMS. Check out the attached PDF or leave a comment
-                        down below.
-                    </p>
-                    <div class="card-actions">
-                        <button class="action-btn">💬 18 Comments</button>
-                        <button class="action-btn">🔗 Share</button>
+                    <span class="count-pill" id="posts-count">0 posts</span>
+                </div>
+
+                <div class="status-line" id="posts-status" role="status"></div>
+                <div class="feed" id="posts-feed" aria-live="polite"></div>
+            </section>
+
+            <section class="view" id="discussions-view" data-view="discussions" aria-labelledby="discussions-title">
+                <div class="view-heading">
+                    <div>
+                        <p class="eyebrow">Community</p>
+                        <h1 id="discussions-title">Discussions</h1>
+                    </div>
+                    <span class="count-pill" id="discussions-count">0 discussions</span>
+                </div>
+
+                <form class="composer" id="discussion-form" autocomplete="off">
+                    <fieldset id="discussion-fieldset" disabled>
+                        <label for="discussion-title">Title</label>
+                        <input id="discussion-title" name="title" type="text" maxlength="140" required />
+
+                        <label for="discussion-content">Text Content</label>
+                        <textarea id="discussion-content" name="content" rows="5" maxlength="5000" required></textarea>
+
+                        <label for="discussion-link">External Link</label>
+                        <input id="discussion-link" name="externalLink" type="url" inputmode="url" placeholder="https://example.com" />
+
+                        <button class="primary-button" type="submit">Create discussion</button>
+                    </fieldset>
+                    <p class="form-note" id="discussion-form-status" role="status">Log in to create a discussion.</p>
+                </form>
+
+                <div class="status-line" id="discussions-status" role="status"></div>
+                <div class="feed" id="discussions-feed" aria-live="polite"></div>
+            </section>
+
+            <section class="view" id="settings-view" data-view="settings" aria-labelledby="settings-title">
+                <div class="view-heading">
+                    <div>
+                        <p class="eyebrow">Account</p>
+                        <h1 id="settings-title">Settings</h1>
                     </div>
                 </div>
-            </article>
-        </section>
 
-        <section class="feed-view hidden" id="discussions-view">
-            <article class="card">
-                <div class="vote-sidebar">
-                    <button class="vote-btn">▲</button>
-                    <span class="vote-count">42</span>
-                    <button class="vote-btn">▼</button>
+                <div class="settings-grid">
+                    <section class="settings-panel" aria-labelledby="theme-title">
+                        <div class="panel-header">
+                            <div>
+                                <p class="eyebrow">Theme</p>
+                                <h2 id="theme-title">Appearance</h2>
+                            </div>
+                            <label class="theme-toggle">
+                                <input id="theme-toggle" type="checkbox" checked />
+                                <span class="toggle-track" aria-hidden="true"></span>
+                                <span class="toggle-label">Dark</span>
+                            </label>
+                        </div>
+                    </section>
+
+                    <section class="settings-panel" aria-labelledby="auth-title">
+                        <div class="panel-header">
+                            <div>
+                                <p class="eyebrow">Firebase Auth</p>
+                                <h2 id="auth-title">Account</h2>
+                            </div>
+                            <button class="ghost-button is-hidden" id="sign-out-button" type="button">Sign out</button>
+                        </div>
+
+                        <form class="auth-form" id="auth-form" autocomplete="off">
+                            <label for="auth-username">Username</label>
+                            <input id="auth-username" name="username" type="text" minlength="3" maxlength="40" autocomplete="username" required />
+
+                            <label for="auth-password">Password</label>
+                            <input id="auth-password" name="password" type="password" minlength="6" autocomplete="current-password" required />
+
+                            <div class="button-row">
+                                <button class="primary-button" type="submit" data-auth-action="login">Log in</button>
+                                <button class="secondary-button" type="submit" data-auth-action="signup">Sign up</button>
+                            </div>
+                        </form>
+
+                        <div class="profile-status" id="profile-status" role="status">
+                            <span class="profile-label">Status</span>
+                            <strong>Guest</strong>
+                        </div>
+                    </section>
                 </div>
-                <div class="card-content">
-                    <div class="card-meta">
-                        Discussion started by <span class="author">user123</span> • 5 hours ago
-                    </div>
-                    <h2 class="card-title">What feature should we add next?</h2>
-                    <p class="card-text">
-                        Hey everyone, curious what you think about the new dark theme?
-                    </p>
-                    <div class="card-actions">
-                        <button class="action-btn">💬 7 Comments</button>
-                        <button class="action-btn">🔗 Share</button>
-                    </div>
-                </div>
-            </article>
-        </section>
+            </section>
+        </div>
 
-        <section class="settings-view hidden" id="settings-view">
-            <div class="settings-card">
-                <h2>User Settings</h2>
-
-                <div class="setting-item">
-                    <div class="setting-info">
-                        <span class="setting-title">Dark Theme</span>
-                        <span class="setting-desc">Switch between light and dark themes</span>
+        <aside class="side-panel" aria-label="Community summary">
+            <section class="side-section">
+                <h2>Community</h2>
+                <dl class="metric-list">
+                    <div>
+                        <dt>Posts</dt>
+                        <dd id="side-post-count">0</dd>
                     </div>
-                    <label class="switch">
-                        <input type="checkbox" id="dark-mode-toggle" checked>
-                        <span class="slider"></span>
-                    </label>
-                </div>
-            </div>
-        </section>
-
-        <aside class="sidebar">
-            <div class="sidebar-box">
-                <h3>About Community</h3>
-                <p>Welcome to my personal site! Read my posts or start a discussion with other visitors.</p>
-                <button class="primary-btn">Create Discussion</button>
-            </div>
+                    <div>
+                        <dt>Discussions</dt>
+                        <dd id="side-discussion-count">0</dd>
+                    </div>
+                </dl>
+            </section>
+            <section class="side-section">
+                <h2>Schema</h2>
+                <dl class="schema-list">
+                    <div>
+                        <dt>User</dt>
+                        <dd><code>uid</code>, <code>username</code>, <code>createdAt</code></dd>
+                    </div>
+                    <div>
+                        <dt>Discussion/Comment</dt>
+                        <dd><code>id</code>, <code>targetId</code>, <code>authorUid</code>, <code>content</code></dd>
+                    </div>
+                </dl>
+            </section>
         </aside>
-
     </main>
 
-    <script src="script.js"></script>
+    <script src="app.js" defer></script>
 </body>
 
 </html>
