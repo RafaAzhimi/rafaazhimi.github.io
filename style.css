@@ -708,7 +708,7 @@ button:focus-visible {
             "brand session"
             "tabs tabs";
         gap: 7px;
-        padding: 7px 0;
+        padding: 7px 16px;
     }
 
     .brand {
@@ -745,12 +745,13 @@ button:focus-visible {
     }
 
     .nav-shell {
-        width: calc(100vw - 8px);
-        margin-inline: 4px;
+        width: 100%;
+        padding: 7px 12px;
     }
 
     .page-shell {
-        width: calc(100vw - 8px);
+        width: 100%;
+        padding: 0 12px;
         gap: 8px;
     }
 
