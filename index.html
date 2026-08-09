@@ -1,20 +1,102 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tetris</title>
-    <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rafa Azhimi - Community</title>
+    <link rel="stylesheet" href="style.css" />
 </head>
-<body>
-    <div class="game-container">
-        <div class="score-board">Score: <span id="score">0</span></div>
-        <canvas id="tetris" width="240" height="400"></canvas>
-        <div class="controls-hint">
-            <p>← / → : Move Left / Right</p>
-            <p>↑ : Rotate | ↓ : Soft Drop</p>
+
+<body class="dark-mode">
+    <header class="navbar">
+        <div class="nav-left">
+            <a href="#" class="logo">rafaazhimi</a>
         </div>
-    </div>
+        <div class="nav-right">
+            <button class="nav-btn active" id="btn-posts">Posts</button>
+            <button class="nav-btn" id="btn-discussions">Discussions</button>
+            <button class="nav-btn" id="btn-settings">Settings</button>
+        </div>
+    </header>
+
+    <main class="container">
+
+        <section class="feed-view" id="posts-view">
+            <article class="card">
+                <div class="vote-sidebar">
+                    <button class="vote-btn">▲</button>
+                    <span class="vote-count">124</span>
+                    <button class="vote-btn">▼</button>
+                </div>
+                <div class="card-content">
+                    <div class="card-meta">
+                        Posted by <span class="author">rafaazhimi</span> • 2 hours ago
+                    </div>
+                    <h2 class="card-title">Welcome to the website!</h2>
+                    <p class="card-text">
+                        This is an official post published via Decap CMS. Check out the attached PDF or leave a comment
+                        down below.
+                    </p>
+                    <div class="card-actions">
+                        <button class="action-btn">💬 18 Comments</button>
+                        <button class="action-btn">🔗 Share</button>
+                    </div>
+                </div>
+            </article>
+        </section>
+
+        <section class="feed-view hidden" id="discussions-view">
+            <article class="card">
+                <div class="vote-sidebar">
+                    <button class="vote-btn">▲</button>
+                    <span class="vote-count">42</span>
+                    <button class="vote-btn">▼</button>
+                </div>
+                <div class="card-content">
+                    <div class="card-meta">
+                        Discussion started by <span class="author">user123</span> • 5 hours ago
+                    </div>
+                    <h2 class="card-title">What feature should we add next?</h2>
+                    <p class="card-text">
+                        Hey everyone, curious what you think about the new dark theme?
+                    </p>
+                    <div class="card-actions">
+                        <button class="action-btn">💬 7 Comments</button>
+                        <button class="action-btn">🔗 Share</button>
+                    </div>
+                </div>
+            </article>
+        </section>
+
+        <section class="settings-view hidden" id="settings-view">
+            <div class="settings-card">
+                <h2>User Settings</h2>
+
+                <div class="setting-item">
+                    <div class="setting-info">
+                        <span class="setting-title">Dark Theme</span>
+                        <span class="setting-desc">Switch between light and dark themes</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="dark-mode-toggle" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+        </section>
+
+        <aside class="sidebar">
+            <div class="sidebar-box">
+                <h3>About Community</h3>
+                <p>Welcome to my personal site! Read my posts or start a discussion with other visitors.</p>
+                <button class="primary-btn">Create Discussion</button>
+            </div>
+        </aside>
+
+    </main>
+
     <script src="script.js"></script>
 </body>
+
 </html>
