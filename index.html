@@ -4,8 +4,8 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="A minimal text-only community platform for posts and discussions." />
-    <title>Rafa Azhimi Community</title>
+    <meta name="description" content="A minimal text-only forum for posts and discussions." />
+    <title>Rafa Azhimi Forum</title>
     <link rel="icon" href="favicon.ico" />
     <link rel="stylesheet" href="style.css" />
 </head>
@@ -15,12 +15,12 @@
 
     <header class="site-header">
         <div class="nav-shell">
-            <a class="brand" href="#posts" aria-label="Rafa Azhimi community home">
-                <span class="brand-mark" aria-hidden="true">ra</span>
-                <span class="brand-name">rafaazhimi</span>
+            <a class="brand" href="#posts" aria-label="Rafa Azhimi Forum home">
+                <img class="brand-icon" src="favicon.ico" alt="" />
+                <span class="brand-name">Rafa Azhimi Forum</span>
             </a>
 
-            <nav class="tabs" aria-label="Primary navigation">
+            <nav class="tabs" aria-label="Forum navigation">
                 <button class="tab-button is-active" type="button" data-tab-target="posts">Posts</button>
                 <button class="tab-button" type="button" data-tab-target="discussions">Discussions</button>
                 <button class="tab-button" type="button" data-tab-target="settings">Settings</button>
@@ -35,11 +35,30 @@
             <section class="view is-active" id="posts-view" data-view="posts" aria-labelledby="posts-title">
                 <div class="view-heading">
                     <div>
-                        <p class="eyebrow">Admin posts</p>
+                        <p class="eyebrow">Official</p>
                         <h1 id="posts-title">Posts</h1>
                     </div>
                     <span class="count-pill" id="posts-count">0 posts</span>
                 </div>
+
+                <form class="composer admin-composer is-hidden" id="post-form" autocomplete="off">
+                    <fieldset id="post-fieldset" disabled>
+                        <label for="post-title">Title</label>
+                        <input id="post-title" name="title" type="text" maxlength="140" required />
+
+                        <label for="post-content">Text Content</label>
+                        <textarea id="post-content" name="content" rows="5" maxlength="5000" required></textarea>
+
+                        <label for="post-link">External Link</label>
+                        <input id="post-link" name="externalLink" type="url" inputmode="url" placeholder="https://example.com" />
+
+                        <div class="button-row">
+                            <button class="primary-button" id="post-submit-button" type="submit">Create post</button>
+                            <button class="secondary-button is-hidden" id="post-cancel-edit" type="button">Cancel</button>
+                        </div>
+                    </fieldset>
+                    <p class="form-note" id="post-form-status" role="status">Official posts are reserved for rafa.azhimi.</p>
+                </form>
 
                 <div class="status-line" id="posts-status" role="status"></div>
                 <div class="feed" id="posts-feed" aria-live="polite"></div>
@@ -65,7 +84,10 @@
                         <label for="discussion-link">External Link</label>
                         <input id="discussion-link" name="externalLink" type="url" inputmode="url" placeholder="https://example.com" />
 
-                        <button class="primary-button" type="submit">Create discussion</button>
+                        <div class="button-row">
+                            <button class="primary-button" id="discussion-submit-button" type="submit">Create discussion</button>
+                            <button class="secondary-button is-hidden" id="discussion-cancel-edit" type="button">Cancel</button>
+                        </div>
                     </fieldset>
                     <p class="form-note" id="discussion-form-status" role="status">Log in to create a discussion.</p>
                 </form>
@@ -128,9 +150,9 @@
             </section>
         </div>
 
-        <aside class="side-panel" aria-label="Community summary">
+        <aside class="side-panel" aria-label="Forum sidebar">
             <section class="side-section">
-                <h2>Community</h2>
+                <h2>Forum sidebar</h2>
                 <dl class="metric-list">
                     <div>
                         <dt>Posts</dt>
@@ -143,17 +165,9 @@
                 </dl>
             </section>
             <section class="side-section">
-                <h2>Schema</h2>
-                <dl class="schema-list">
-                    <div>
-                        <dt>User</dt>
-                        <dd><code>uid</code>, <code>username</code>, <code>createdAt</code></dd>
-                    </div>
-                    <div>
-                        <dt>Discussion/Comment</dt>
-                        <dd><code>id</code>, <code>targetId</code>, <code>authorUid</code>, <code>content</code></dd>
-                    </div>
-                </dl>
+                <h2>About</h2>
+                <p>Official updates and open discussions for Rafa Azhimi's forum.</p>
+                <p class="warning-note">Keep it civil. Do not spread hateful messages.</p>
             </section>
         </aside>
     </main>
