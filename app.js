@@ -290,7 +290,7 @@ window.communityFirebase = {
             event.preventDefault();
 
             if (!isAdminUser()) {
-                setText(nodes.postFormStatus, `Only ${ADMIN_USERNAME} can post.`);
+                setText(nodes.postFormStatus, `Only Admins can post.`);
                 return;
             }
 
@@ -829,7 +829,7 @@ window.communityFirebase = {
 
         const fieldset = createElement("fieldset", { disabled: !state.currentUser });
         fieldset.append(
-            createElement("label", { htmlFor: contentId, text: "Text Content" }),
+            createElement("label", { htmlFor: contentId, text: "Content" }),
             createElement("textarea", {
                 id: contentId,
                 name: "content",
@@ -902,7 +902,7 @@ window.communityFirebase = {
             return;
         }
 
-        const nextContent = window.prompt("Text Content", item.content);
+        const nextContent = window.prompt("Content", item.content);
 
         if (nextContent === null) {
             return;
@@ -939,7 +939,7 @@ window.communityFirebase = {
             return;
         }
 
-        const nextContent = window.prompt("Text Content", item.content);
+        const nextContent = window.prompt("Content", item.content);
 
         if (nextContent === null) {
             return;
@@ -975,7 +975,7 @@ window.communityFirebase = {
             return;
         }
 
-        const nextContent = window.prompt("Text Content", comment.content);
+        const nextContent = window.prompt("Content", comment.content);
 
         if (nextContent === null) {
             return;
@@ -1022,7 +1022,7 @@ window.communityFirebase = {
             nodes.postFieldset.disabled = true;
             nodes.postForm.classList.add("is-hidden");
             setText(nodes.discussionFormStatus, "Log in to create a discussion.");
-            setText(nodes.postFormStatus, `Only ${ADMIN_USERNAME} can post.`);
+            setText(nodes.postFormStatus, `Only Admins can post.`);
             return;
         }
 
@@ -1038,7 +1038,7 @@ window.communityFirebase = {
         if (isAdminUser()) {
             setText(nodes.postFormStatus, `Logged in as ${state.currentUser.username}.`);
         } else {
-            setText(nodes.postFormStatus, `Only ${ADMIN_USERNAME} can post.`);
+            setText(nodes.postFormStatus, `Only Admins can post.`);
         }
     }
 
