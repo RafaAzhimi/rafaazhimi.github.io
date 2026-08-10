@@ -64,6 +64,20 @@ window.communityFirebase = {
     deleteDiscussion: async (id) => {
       await deleteDoc(doc(db, "discussions", id));
     },
+    listPosts: async () => {
+      const q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
+      const snap = await getDocs(q);
+      return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    },
+    createPost: async (data) => {
+      await addDoc(collection(db, "posts"), data);
+    },
+    updatePost: async (id, data) => {
+      await updateDoc(doc(db, "posts", id), data);
+    },
+    deletePost: async (id) => {
+      await deleteDoc(doc(db, "posts", id));
+    },
     listComments: async (targetId) => {
       const q = query(collection(db, "comments"), where("targetId", "==", targetId));
       const snap = await getDocs(q);
@@ -98,6 +112,7 @@ window.communityFirebase = {
         discussionOrComment: Object.freeze({
             id: "",
             targetId: "",
+            parentId: "",
             author: "",
             authorUid: "",
             title: "",
@@ -106,6 +121,9 @@ window.communityFirebase = {
             createdAt: ""
         })
     });
+
+    const ADMIN_USERNAME = "rafa.azhimi";
+    const MAX_REPLY_DEPTH = 4;
 
     const siteConfig = {
         githubRepo: inferGithubRepo(),
@@ -122,7 +140,8 @@ window.communityFirebase = {
         discussions: [],
         commentsByTarget: new Map(),
         commentCountsByTarget: new Map(),
-        expandedTargets: new Set()
+        expandedTargets: new Set(),
+        expandedReplyForms: new Set()
     };
 
     const nodes = {};
@@ -147,6 +166,7 @@ window.communityFirebase = {
         bindTabs();
         bindThemeToggle();
         bindAuth();
+        bindPostForm();
         bindDiscussionForm();
         bindFeedActions();
         bindCommentForms();
@@ -164,6 +184,9 @@ window.communityFirebase = {
         nodes.postsFeed = document.getElementById("posts-feed");
         nodes.postsCount = document.getElementById("posts-count");
         nodes.postsStatus = document.getElementById("posts-status");
+        nodes.postForm = document.getElementById("post-form");
+        nodes.postFieldset = document.getElementById("post-fieldset");
+        nodes.postFormStatus = document.getElementById("post-form-status");
         nodes.discussionsFeed = document.getElementById("discussions-feed");
         nodes.discussionsCount = document.getElementById("discussions-count");
         nodes.discussionsStatus = document.getElementById("discussions-status");
@@ -256,6 +279,48 @@ window.communityFirebase = {
         });
     }
 
+    function bindPostForm() {
+        if (!nodes.postForm) {
+            return;
+        }
+
+        nodes.postForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+
+            if (!isAdminUser()) {
+                setText(nodes.postFormStatus, `Only ${ADMIN_USERNAME} can create posts.`);
+                return;
+            }
+
+            const formData = new FormData(nodes.postForm);
+            const model = createFirestoreModel({
+                targetId: "posts",
+                parentId: "",
+                author: state.currentUser.username,
+                authorUid: state.currentUser.uid,
+                title: String(formData.get("title") || "").trim(),
+                content: String(formData.get("content") || "").trim(),
+                externalLink: sanitizeExternalLink(String(formData.get("externalLink") || "").trim())
+            });
+
+            if (!model.title || !model.content) {
+                setText(nodes.postFormStatus, "Title and text content are required.");
+                return;
+            }
+
+            setText(nodes.postFormStatus, "Creating post...");
+
+            try {
+                await firebaseBridge.firestore.createPost(model);
+                nodes.postForm.reset();
+                setText(nodes.postFormStatus, "Post submitted.");
+                await loadPosts();
+            } catch (error) {
+                setText(nodes.postFormStatus, getErrorMessage(error));
+            }
+        });
+    }
+
     function bindDiscussionForm() {
         nodes.discussionForm.addEventListener("submit", async (event) => {
             event.preventDefault();
@@ -268,6 +333,7 @@ window.communityFirebase = {
             const formData = new FormData(nodes.discussionForm);
             const model = createFirestoreModel({
                 targetId: "discussions",
+                parentId: "",
                 author: state.currentUser.username,
                 authorUid: state.currentUser.uid,
                 title: String(formData.get("title") || "").trim(),
@@ -310,6 +376,21 @@ window.communityFirebase = {
                 return;
             }
 
+            if (action === "toggle-reply") {
+                toggleReplyForm(itemId);
+                return;
+            }
+
+            if (action === "edit-post") {
+                await editPost(itemId);
+                return;
+            }
+
+            if (action === "delete-post") {
+                await deletePost(itemId);
+                return;
+            }
+
             if (action === "edit-discussion") {
                 await editDiscussion(itemId);
                 return;
@@ -348,9 +429,27 @@ window.communityFirebase = {
             }
 
             const targetId = form.dataset.targetId;
+            const parentId = form.dataset.parentId || "";
             const formData = new FormData(form);
+
+            if (parentId) {
+                const comments = state.commentsByTarget.get(targetId) || [];
+                const parentComment = findComment(targetId, parentId);
+
+                if (!parentComment) {
+                    setText(form.querySelector("[data-comment-status]"), "Parent comment not found.");
+                    return;
+                }
+
+                if (getCommentDepth(parentComment, comments) >= MAX_REPLY_DEPTH) {
+                    setText(form.querySelector("[data-comment-status]"), `Replies are limited to ${MAX_REPLY_DEPTH} levels.`);
+                    return;
+                }
+            }
+
             const model = createFirestoreModel({
                 targetId,
+                parentId,
                 author: state.currentUser.username,
                 authorUid: state.currentUser.uid,
                 title: "",
@@ -368,6 +467,9 @@ window.communityFirebase = {
             try {
                 await firebaseBridge.firestore.createComment(model);
                 form.reset();
+                if (parentId) {
+                    state.expandedReplyForms.delete(parentId);
+                }
                 await refreshComments(targetId);
                 renderFeeds();
             } catch (error) {
@@ -390,12 +492,14 @@ window.communityFirebase = {
         setText(nodes.postsStatus, "Loading posts...");
 
         try {
-            state.posts = await fetchDecapPosts();
-            state.posts.sort(sortByCreatedAtDesc);
+            const posts = await firebaseBridge.firestore.listPosts();
+            state.posts = Array.isArray(posts)
+                ? posts.map(normalizeDiscussionOrComment).filter(Boolean).sort(sortByCreatedAtDesc)
+                : [];
             setText(nodes.postsStatus, "");
         } catch (error) {
             state.posts = [];
-            setText(nodes.postsStatus, getErrorMessage(error, "Posts could not load from GitHub JSON."));
+            setText(nodes.postsStatus, getErrorMessage(error, "Posts could not load from Firestore."));
         }
 
         renderPosts();
@@ -441,48 +545,14 @@ window.communityFirebase = {
         renderFeeds();
     }
 
-    async function fetchDecapPosts() {
-        const apiUrl = `https://api.github.com/repos/${siteConfig.githubRepo}/contents/${trimSlashes(siteConfig.postsPath)}?ref=${encodeURIComponent(siteConfig.githubBranch)}`;
-        const response = await fetch(apiUrl, {
-            headers: {
-                Accept: "application/vnd.github+json"
-            }
-        });
-
-        if (response.status === 404) {
-            return [];
+    function toggleReplyForm(commentId) {
+        if (state.expandedReplyForms.has(commentId)) {
+            state.expandedReplyForms.delete(commentId);
+        } else {
+            state.expandedReplyForms.add(commentId);
         }
 
-        if (!response.ok) {
-            throw new Error(`GitHub returned ${response.status} for posts.`);
-        }
-
-        const entries = await response.json();
-
-        if (!Array.isArray(entries)) {
-            return [];
-        }
-
-        const jsonEntries = entries.filter((entry) => {
-            return entry && entry.type === "file" && /\.json$/i.test(entry.name) && entry.download_url;
-        });
-
-        const posts = await Promise.all(jsonEntries.map(async (entry) => {
-            try {
-                const fileResponse = await fetch(entry.download_url, { cache: "no-store" });
-
-                if (!fileResponse.ok) {
-                    return null;
-                }
-
-                const rawPost = await fileResponse.json();
-                return normalizePost(rawPost, entry.name);
-            } catch (error) {
-                return null;
-            }
-        }));
-
-        return posts.filter(Boolean);
+        renderFeeds();
     }
 
     function renderPosts() {
@@ -606,6 +676,33 @@ window.communityFirebase = {
             );
         }
 
+        if (type === "post") {
+            const allowed = canMutatePost(item);
+
+            actionRow.append(
+                createElement("button", {
+                    className: "action-button",
+                    type: "button",
+                    text: "Edit",
+                    disabled: !allowed,
+                    dataset: {
+                        action: "edit-post",
+                        itemId: item.id
+                    }
+                }),
+                createElement("button", {
+                    className: "action-button danger-button",
+                    type: "button",
+                    text: "Delete",
+                    disabled: !allowed,
+                    dataset: {
+                        action: "delete-post",
+                        itemId: item.id
+                    }
+                })
+            );
+        }
+
         return actionRow;
     }
 
@@ -616,12 +713,13 @@ window.communityFirebase = {
 
         const list = createElement("div", { className: "comment-list" });
         const comments = state.commentsByTarget.get(item.id) || [];
+        const roots = getRootComments(comments);
 
-        if (comments.length === 0) {
+        if (roots.length === 0) {
             list.append(createElement("p", { className: "empty-state", text: "No comments found." }));
         } else {
-            comments.forEach((comment) => {
-                list.append(createComment(comment, item.id));
+            roots.forEach((comment) => {
+                list.append(createCommentNode(comment, item.id, comments));
             });
         }
 
@@ -629,8 +727,14 @@ window.communityFirebase = {
         return region;
     }
 
-    function createComment(comment, targetId) {
-        const wrapper = createElement("article", { className: "comment" });
+    function createCommentNode(comment, targetId, allComments) {
+        const depth = getCommentDepth(comment, allComments);
+        const wrapper = createElement("article", {
+            className: "comment",
+            dataset: {
+                depth: String(depth)
+            }
+        });
         const allowed = canMutate(comment);
 
         wrapper.append(
@@ -646,6 +750,19 @@ window.communityFirebase = {
         }
 
         const actions = createElement("div", { className: "action-row" });
+
+        if (depth < MAX_REPLY_DEPTH) {
+            actions.append(createElement("button", {
+                className: "action-button",
+                type: "button",
+                text: state.expandedReplyForms.has(comment.id) ? "Cancel reply" : "Reply",
+                dataset: {
+                    action: "toggle-reply",
+                    itemId: comment.id
+                }
+            }));
+        }
+
         actions.append(
             createElement("button", {
                 className: "action-button",
@@ -672,19 +789,40 @@ window.communityFirebase = {
         );
         wrapper.append(actions);
 
+        if (state.expandedReplyForms.has(comment.id)) {
+            wrapper.append(createCommentForm(targetId, comment.id));
+        }
+
+        const children = getCommentReplies(comment.id, allComments);
+
+        if (children.length > 0) {
+            const childList = createElement("div", { className: "comment-children" });
+            children.forEach((child) => {
+                childList.append(createCommentNode(child, targetId, allComments));
+            });
+            wrapper.append(childList);
+        }
+
         return wrapper;
     }
 
-    function createCommentForm(targetId) {
+    function createComment(comment, targetId) {
+        const allComments = state.commentsByTarget.get(targetId) || [];
+        return createCommentNode(comment, targetId, allComments);
+    }
+
+    function createCommentForm(targetId, parentId = "") {
         const form = createElement("form", {
             className: "comment-form",
             dataset: {
-                targetId
+                targetId,
+                parentId
             }
         });
 
-        const contentId = `comment-content-${cssSafeId(targetId)}`;
-        const linkId = `comment-link-${cssSafeId(targetId)}`;
+        const formKey = parentId || targetId;
+        const contentId = `comment-content-${cssSafeId(formKey)}`;
+        const linkId = `comment-link-${cssSafeId(formKey)}`;
 
         const fieldset = createElement("fieldset", { disabled: !state.currentUser });
         fieldset.append(
@@ -707,7 +845,7 @@ window.communityFirebase = {
             createElement("button", {
                 className: "secondary-button",
                 type: "submit",
-                text: "Reply"
+                text: parentId ? "Submit reply" : "Reply"
             })
         );
 
@@ -741,7 +879,7 @@ window.communityFirebase = {
         try {
             const comments = await firebaseBridge.firestore.listComments(targetId);
             const normalized = Array.isArray(comments)
-                ? comments.map(normalizeDiscussionOrComment).filter(Boolean).sort(sortByCreatedAtDesc)
+                ? comments.map(normalizeDiscussionOrComment).filter(Boolean).sort(sortByCreatedAtAsc)
                 : [];
 
             state.commentsByTarget.set(targetId, normalized);
@@ -752,6 +890,43 @@ window.communityFirebase = {
         }
 
         renderCountSidebar();
+    }
+
+    async function editPost(itemId) {
+        const item = state.posts.find((post) => post.id === itemId);
+
+        if (!canMutatePost(item)) {
+            return;
+        }
+
+        const nextContent = window.prompt("Text Content", item.content);
+
+        if (nextContent === null) {
+            return;
+        }
+
+        try {
+            await firebaseBridge.firestore.updatePost(item.id, { content: nextContent.trim() });
+            await loadPosts();
+        } catch (error) {
+            setText(nodes.postsStatus, getErrorMessage(error));
+        }
+    }
+
+    async function deletePost(itemId) {
+        const item = state.posts.find((post) => post.id === itemId);
+
+        if (!canMutatePost(item) || !window.confirm("Delete this post?")) {
+            return;
+        }
+
+        try {
+            await firebaseBridge.firestore.deletePost(item.id);
+            await loadPosts();
+            await loadCommentCounts();
+        } catch (error) {
+            setText(nodes.postsStatus, getErrorMessage(error));
+        }
     }
 
     async function editDiscussion(itemId) {
@@ -841,7 +1016,9 @@ window.communityFirebase = {
             nodes.signOutButton.classList.add("is-hidden");
             renderProfileStatus("Guest");
             nodes.discussionFieldset.disabled = true;
+            nodes.postFieldset.disabled = true;
             setText(nodes.discussionFormStatus, "Log in to create a discussion.");
+            setText(nodes.postFormStatus, `Log in as ${ADMIN_USERNAME} to create a post.`);
             return;
         }
 
@@ -850,7 +1027,14 @@ window.communityFirebase = {
         nodes.signOutButton.classList.remove("is-hidden");
         renderProfileStatus(`${state.currentUser.username} (${state.currentUser.uid})`);
         nodes.discussionFieldset.disabled = false;
+        nodes.postFieldset.disabled = !isAdminUser();
         setText(nodes.discussionFormStatus, `Logged in as ${state.currentUser.username}.`);
+
+        if (isAdminUser()) {
+            setText(nodes.postFormStatus, `Logged in as ${state.currentUser.username}.`);
+        } else {
+            setText(nodes.postFormStatus, `Only ${ADMIN_USERNAME} can create posts.`);
+        }
     }
 
     function renderProfileStatus(message) {
@@ -910,29 +1094,13 @@ window.communityFirebase = {
             ...FIREBASE_READY_SCHEMAS.discussionOrComment,
             id: createId(),
             targetId: values.targetId || "",
+            parentId: values.parentId || "",
             author: values.author || "",
             authorUid: values.authorUid || "",
             title: values.title || "",
             content: values.content || "",
             externalLink: values.externalLink || "",
             createdAt: new Date().toISOString()
-        };
-    }
-
-    function normalizePost(rawPost, fileName) {
-        if (!rawPost || typeof rawPost !== "object") {
-            return null;
-        }
-
-        const fallbackId = fileName ? fileName.replace(/\.json$/i, "") : createId();
-
-        return {
-            id: String(rawPost.id || fallbackId),
-            title: String(rawPost.title || "Untitled"),
-            content: String(rawPost.content || ""),
-            externalLink: sanitizeExternalLink(String(rawPost.externalLink || "").trim()),
-            createdAt: String(rawPost.createdAt || ""),
-            author: String(rawPost.author || "Admin")
         };
     }
 
@@ -944,6 +1112,7 @@ window.communityFirebase = {
         return {
             id: String(rawItem.id || ""),
             targetId: String(rawItem.targetId || ""),
+            parentId: String(rawItem.parentId || ""),
             author: String(rawItem.author || ""),
             authorUid: String(rawItem.authorUid || ""),
             title: String(rawItem.title || ""),
@@ -963,6 +1132,40 @@ window.communityFirebase = {
             username,
             createdAt: String(user.createdAt || user.metadata?.creationTime || "")
         };
+    }
+
+    function canMutatePost(item) {
+        return isAdminUser() && canMutate(item);
+    }
+
+    function isAdminUser(user = state.currentUser) {
+        return Boolean(user && normalizeUsername(user.username) === normalizeUsername(ADMIN_USERNAME));
+    }
+
+    function normalizeUsername(username) {
+        return String(username || "").trim().toLowerCase();
+    }
+
+    function getRootComments(comments) {
+        return comments.filter((comment) => !comment.parentId);
+    }
+
+    function getCommentReplies(parentId, comments) {
+        return comments.filter((comment) => comment.parentId === parentId);
+    }
+
+    function getCommentDepth(comment, allComments) {
+        if (!comment || !comment.parentId) {
+            return 1;
+        }
+
+        const parent = allComments.find((entry) => entry.id === comment.parentId);
+
+        if (!parent) {
+            return 1;
+        }
+
+        return getCommentDepth(parent, allComments) + 1;
     }
 
     function canMutate(item) {
@@ -1043,6 +1246,10 @@ window.communityFirebase = {
         if (node) {
             node.textContent = value;
         }
+    }
+
+    function sortByCreatedAtAsc(a, b) {
+        return Number(new Date(a.createdAt)) - Number(new Date(b.createdAt));
     }
 
     function sortByCreatedAtDesc(a, b) {
@@ -1148,6 +1355,11 @@ window.communityFirebase = {
                     // getDocs(query(collection(db, "discussions"), orderBy("createdAt", "desc")))
                     return [];
                 },
+                async listPosts() {
+                    // Firestore integration point:
+                    // getDocs(query(collection(db, "posts"), orderBy("createdAt", "desc")))
+                    return [];
+                },
                 async listComments() {
                     // Firestore integration point:
                     // getDocs(query(collection(db, "comments"), where("targetId", "==", targetId)))
@@ -1163,6 +1375,11 @@ window.communityFirebase = {
                     // setDoc(doc(db, "discussions", model.id), model)
                     throw new Error("Firestore is not connected.");
                 },
+                async createPost() {
+                    // Firestore integration point:
+                    // setDoc(doc(db, "posts", model.id), model)
+                    throw new Error("Firestore is not connected.");
+                },
                 async createComment() {
                     // Firestore integration point:
                     // setDoc(doc(db, "comments", model.id), model)
@@ -1173,6 +1390,11 @@ window.communityFirebase = {
                     // updateDoc(doc(db, "discussions", id), patch)
                     throw new Error("Firestore is not connected.");
                 },
+                async updatePost() {
+                    // Firestore integration point:
+                    // updateDoc(doc(db, "posts", id), patch)
+                    throw new Error("Firestore is not connected.");
+                },
                 async updateComment() {
                     // Firestore integration point:
                     // updateDoc(doc(db, "comments", id), patch)
@@ -1181,6 +1403,11 @@ window.communityFirebase = {
                 async deleteDiscussion() {
                     // Firestore integration point:
                     // deleteDoc(doc(db, "discussions", id))
+                    throw new Error("Firestore is not connected.");
+                },
+                async deletePost() {
+                    // Firestore integration point:
+                    // deleteDoc(doc(db, "posts", id))
                     throw new Error("Firestore is not connected.");
                 },
                 async deleteComment() {

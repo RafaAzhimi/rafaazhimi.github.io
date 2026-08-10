@@ -41,6 +41,22 @@
                     <span class="count-pill" id="posts-count">0 posts</span>
                 </div>
 
+                <form class="composer" id="post-form" autocomplete="off">
+                    <fieldset id="post-fieldset" disabled>
+                        <label for="post-title">Title</label>
+                        <input id="post-title" name="title" type="text" maxlength="140" required />
+
+                        <label for="post-content">Text Content</label>
+                        <textarea id="post-content" name="content" rows="5" maxlength="5000" required></textarea>
+
+                        <label for="post-link">External Link</label>
+                        <input id="post-link" name="externalLink" type="url" inputmode="url" placeholder="https://example.com" />
+
+                        <button class="primary-button" type="submit">Create post</button>
+                    </fieldset>
+                    <p class="form-note" id="post-form-status" role="status">Log in as rafa.azhimi to create a post.</p>
+                </form>
+
                 <div class="status-line" id="posts-status" role="status"></div>
                 <div class="feed" id="posts-feed" aria-live="polite"></div>
             </section>

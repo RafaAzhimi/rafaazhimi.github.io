@@ -425,6 +425,15 @@ code {
     background: var(--surface-raised);
 }
 
+.comment-children {
+    display: grid;
+    gap: 8px;
+    margin-top: 8px;
+    margin-left: 14px;
+    padding-left: 12px;
+    border-left: 2px solid var(--border);
+}
+
 .comment p {
     margin: 5px 0 0;
     color: var(--soft);
