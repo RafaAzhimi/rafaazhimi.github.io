@@ -39,12 +39,12 @@ window.communityFirebase = {
     signUp: async ({ username, password }) => {
       const email = `${username.toLowerCase()}@app.local`;
       const res = await createUserWithEmailAndPassword(auth, email, password);
-      return { uid: res.user.uid, username };
+      return { uid: res.user.uid, username, email: res.user.email };
     },
     signIn: async ({ username, password }) => {
       const email = `${username.toLowerCase()}@app.local`;
       const res = await signInWithEmailAndPassword(auth, email, password);
-      return { uid: res.user.uid, username };
+      return { uid: res.user.uid, username, email: res.user.email };
     },
     signOut: () => signOut(auth),
     onAuthStateChanged: (callback) => onAuthStateChanged(auth, callback)
@@ -107,6 +107,7 @@ window.communityFirebase = {
         user: Object.freeze({
             uid: "",
             username: "",
+            email: "",
             createdAt: ""
         }),
         discussionOrComment: Object.freeze({
@@ -123,6 +124,7 @@ window.communityFirebase = {
     });
 
     const ADMIN_USERNAME = "rafa.azhimi";
+    const ADMIN_EMAIL = "rafa.azhimi@app.local";
     const MAX_REPLY_DEPTH = 4;
 
     const siteConfig = {
@@ -288,7 +290,7 @@ window.communityFirebase = {
             event.preventDefault();
 
             if (!isAdminUser()) {
-                setText(nodes.postFormStatus, `Only ${ADMIN_USERNAME} can create posts.`);
+                setText(nodes.postFormStatus, `Only ${ADMIN_USERNAME} can post.`);
                 return;
             }
 
@@ -595,8 +597,31 @@ window.communityFirebase = {
         const commentCount = getCommentCount(item.id);
         const score = Number.isFinite(Number(item.score)) ? Number(item.score) : 0;
 
-        const voteRail = createElement("div", { className: "vote-rail", ariaLabel: "Counters" });
-        voteRail.append(
+        const body = createElement("div", { className: "card-body" });
+        const meta = type === "post"
+            ? `Posted by ${item.author || "Admin"} on ${formatDate(item.createdAt)}`
+            : `Started by ${item.author || "Unknown"} on ${formatDate(item.createdAt)}`;
+
+        body.append(
+            createElement("p", { className: "item-meta", text: meta }),
+            createElement("h2", { className: "item-title", text: item.title || "Untitled" }),
+            createElement("p", { className: "item-content", text: item.content || "" })
+        );
+
+        if (item.externalLink) {
+            body.append(createExternalLinkBadge(item.externalLink));
+        }
+
+        body.append(createActionRow(item, type, commentCount, score));
+        body.append(createCommentsRegion(item));
+
+        card.append(body);
+        return card;
+    }
+
+    function createVoteInline(score) {
+        const voteInline = createElement("div", { className: "vote-inline", ariaLabel: "Counters" });
+        voteInline.append(
             createElement("button", {
                 className: "vote-button",
                 type: "button",
@@ -613,31 +638,63 @@ window.communityFirebase = {
                 ariaLabel: "Vote down"
             })
         );
-
-        const body = createElement("div", { className: "card-body" });
-        const meta = type === "post"
-            ? `Posted by ${item.author || "Admin"} on ${formatDate(item.createdAt)}`
-            : `Started by ${item.author || "Unknown"} on ${formatDate(item.createdAt)}`;
-
-        body.append(
-            createElement("p", { className: "item-meta", text: meta }),
-            createElement("h2", { className: "item-title", text: item.title || "Untitled" }),
-            createElement("p", { className: "item-content", text: item.content || "" })
-        );
-
-        if (item.externalLink) {
-            body.append(createExternalLinkBadge(item.externalLink));
-        }
-
-        body.append(createActionRow(item, type, commentCount));
-        body.append(createCommentsRegion(item));
-
-        card.append(voteRail, body);
-        return card;
+        return voteInline;
     }
 
-    function createActionRow(item, type, commentCount) {
+    function createActionRow(item, type, commentCount, score = 0) {
         const actionRow = createElement("div", { className: "action-row" });
+
+        actionRow.append(createVoteInline(score));
+
+        const allowed = type === "post" ? canMutatePost(item) : canMutate(item);
+
+        if (allowed) {
+            if (type === "discussion") {
+                actionRow.append(
+                    createElement("button", {
+                        className: "action-button",
+                        type: "button",
+                        text: "Edit",
+                        dataset: {
+                            action: "edit-discussion",
+                            itemId: item.id
+                        }
+                    }),
+                    createElement("button", {
+                        className: "action-button danger-button",
+                        type: "button",
+                        text: "Delete",
+                        dataset: {
+                            action: "delete-discussion",
+                            itemId: item.id
+                        }
+                    })
+                );
+            }
+
+            if (type === "post") {
+                actionRow.append(
+                    createElement("button", {
+                        className: "action-button",
+                        type: "button",
+                        text: "Edit",
+                        dataset: {
+                            action: "edit-post",
+                            itemId: item.id
+                        }
+                    }),
+                    createElement("button", {
+                        className: "action-button danger-button",
+                        type: "button",
+                        text: "Delete",
+                        dataset: {
+                            action: "delete-post",
+                            itemId: item.id
+                        }
+                    })
+                );
+            }
+        }
 
         actionRow.append(createElement("button", {
             className: "action-button",
@@ -648,60 +705,6 @@ window.communityFirebase = {
                 targetId: item.id
             }
         }));
-
-        if (type === "discussion") {
-            const allowed = canMutate(item);
-
-            actionRow.append(
-                createElement("button", {
-                    className: "action-button",
-                    type: "button",
-                    text: "Edit",
-                    disabled: !allowed,
-                    dataset: {
-                        action: "edit-discussion",
-                        itemId: item.id
-                    }
-                }),
-                createElement("button", {
-                    className: "action-button danger-button",
-                    type: "button",
-                    text: "Delete",
-                    disabled: !allowed,
-                    dataset: {
-                        action: "delete-discussion",
-                        itemId: item.id
-                    }
-                })
-            );
-        }
-
-        if (type === "post") {
-            const allowed = canMutatePost(item);
-
-            actionRow.append(
-                createElement("button", {
-                    className: "action-button",
-                    type: "button",
-                    text: "Edit",
-                    disabled: !allowed,
-                    dataset: {
-                        action: "edit-post",
-                        itemId: item.id
-                    }
-                }),
-                createElement("button", {
-                    className: "action-button danger-button",
-                    type: "button",
-                    text: "Delete",
-                    disabled: !allowed,
-                    dataset: {
-                        action: "delete-post",
-                        itemId: item.id
-                    }
-                })
-            );
-        }
 
         return actionRow;
     }
@@ -763,30 +766,30 @@ window.communityFirebase = {
             }));
         }
 
-        actions.append(
-            createElement("button", {
-                className: "action-button",
-                type: "button",
-                text: "Edit",
-                disabled: !allowed,
-                dataset: {
-                    action: "edit-comment",
-                    targetId,
-                    itemId: comment.id
-                }
-            }),
-            createElement("button", {
-                className: "action-button danger-button",
-                type: "button",
-                text: "Delete",
-                disabled: !allowed,
-                dataset: {
-                    action: "delete-comment",
-                    targetId,
-                    itemId: comment.id
-                }
-            })
-        );
+        if (allowed) {
+            actions.append(
+                createElement("button", {
+                    className: "action-button",
+                    type: "button",
+                    text: "Edit",
+                    dataset: {
+                        action: "edit-comment",
+                        targetId,
+                        itemId: comment.id
+                    }
+                }),
+                createElement("button", {
+                    className: "action-button danger-button",
+                    type: "button",
+                    text: "Delete",
+                    dataset: {
+                        action: "delete-comment",
+                        targetId,
+                        itemId: comment.id
+                    }
+                })
+            );
+        }
         wrapper.append(actions);
 
         if (state.expandedReplyForms.has(comment.id)) {
@@ -1017,8 +1020,9 @@ window.communityFirebase = {
             renderProfileStatus("Guest");
             nodes.discussionFieldset.disabled = true;
             nodes.postFieldset.disabled = true;
+            nodes.postForm.classList.add("is-hidden");
             setText(nodes.discussionFormStatus, "Log in to create a discussion.");
-            setText(nodes.postFormStatus, `Log in as ${ADMIN_USERNAME} to create a post.`);
+            setText(nodes.postFormStatus, `Only ${ADMIN_USERNAME} can post.`);
             return;
         }
 
@@ -1028,12 +1032,13 @@ window.communityFirebase = {
         renderProfileStatus(`${state.currentUser.username} (${state.currentUser.uid})`);
         nodes.discussionFieldset.disabled = false;
         nodes.postFieldset.disabled = !isAdminUser();
+        nodes.postForm.classList.toggle("is-hidden", !isAdminUser());
         setText(nodes.discussionFormStatus, `Logged in as ${state.currentUser.username}.`);
 
         if (isAdminUser()) {
             setText(nodes.postFormStatus, `Logged in as ${state.currentUser.username}.`);
         } else {
-            setText(nodes.postFormStatus, `Only ${ADMIN_USERNAME} can create posts.`);
+            setText(nodes.postFormStatus, `Only ${ADMIN_USERNAME} can post.`);
         }
     }
 
@@ -1124,12 +1129,14 @@ window.communityFirebase = {
 
     function normalizeUser(user, fallbackUsername) {
         const uid = String(user.uid || user.id || "");
+        const email = String(user.email || "").trim().toLowerCase();
         const username = String(user.username || user.displayName || fallbackUsername || emailName(user.email) || "User");
 
         return {
             ...FIREBASE_READY_SCHEMAS.user,
             uid,
             username,
+            email,
             createdAt: String(user.createdAt || user.metadata?.creationTime || "")
         };
     }
@@ -1139,7 +1146,12 @@ window.communityFirebase = {
     }
 
     function isAdminUser(user = state.currentUser) {
-        return Boolean(user && normalizeUsername(user.username) === normalizeUsername(ADMIN_USERNAME));
+        if (!user) {
+            return false;
+        }
+
+        const email = String(user.email || "").trim().toLowerCase();
+        return email === ADMIN_EMAIL || normalizeUsername(user.username) === normalizeUsername(ADMIN_USERNAME);
     }
 
     function normalizeUsername(username) {
