@@ -163,6 +163,7 @@ window.communityFirebase = {
         nodes.discussionForm = document.getElementById("discussion-form");
         nodes.discussionFieldset = document.getElementById("discussion-fieldset");
         nodes.discussionFormStatus = document.getElementById("discussion-form-status");
+        nodes.commentsCount = document.getElementById("comments-count");
         nodes.authForm = document.getElementById("auth-form");
         nodes.profileStatus = document.getElementById("profile-status");
         nodes.signOutButton = document.getElementById("sign-out-button");
@@ -499,7 +500,7 @@ window.communityFirebase = {
             createElement("button", {
                 className: "vote-button",
                 type: "button",
-                text: "+",
+                text: "↑",
                 disabled: true,
                 ariaLabel: "Vote up"
             }),
@@ -507,7 +508,7 @@ window.communityFirebase = {
             createElement("button", {
                 className: "vote-button",
                 type: "button",
-                text: "-",
+                text: "↓",
                 disabled: true,
                 ariaLabel: "Vote down"
             })
