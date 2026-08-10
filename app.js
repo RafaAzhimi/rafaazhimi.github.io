@@ -828,6 +828,7 @@ window.communityFirebase = {
     function renderCountSidebar() {
         const postsTotal = document.getElementById("side-post-count");
         const discussionsTotal = document.getElementById("side-discussion-count");
+        const commentsTotal = document.getElementById("side-comment-count");
 
         if (postsTotal) {
             setText(postsTotal, String(state.posts.length));
