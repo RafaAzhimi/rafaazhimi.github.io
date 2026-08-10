@@ -69,6 +69,10 @@ window.communityFirebase = {
       const snap = await getDocs(q);
       return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     },
+    listAllComments: async () => {
+      const snap = await getDocs(collection(db, "comments"));
+      return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    },
     createComment: async (data) => {
       await addDoc(collection(db, "comments"), data);
     },
@@ -117,6 +121,7 @@ window.communityFirebase = {
         posts: [],
         discussions: [],
         commentsByTarget: new Map(),
+        commentCountsByTarget: new Map(),
         expandedTargets: new Set()
     };
 
@@ -127,6 +132,7 @@ window.communityFirebase = {
         config: siteConfig,
         reloadPosts: loadPosts,
         reloadDiscussions: loadDiscussions,
+        reloadCommentCounts: loadCommentCounts,
         setAuthenticatedUser: setCurrentUser
     };
 
@@ -147,6 +153,7 @@ window.communityFirebase = {
         bootAuthObserver();
         loadPosts();
         loadDiscussions();
+        loadCommentCounts();
     }
 
     function cacheNodes() {
@@ -409,6 +416,29 @@ window.communityFirebase = {
         }
 
         renderDiscussions();
+    }
+
+    async function loadCommentCounts() {
+        try {
+            const allComments = await firebaseBridge.firestore.listAllComments();
+            state.commentCountsByTarget.clear();
+
+            (Array.isArray(allComments) ? allComments : []).forEach((rawComment) => {
+                const comment = normalizeDiscussionOrComment(rawComment);
+
+                if (!comment || !comment.targetId) {
+                    return;
+                }
+
+                const current = state.commentCountsByTarget.get(comment.targetId) || 0;
+                state.commentCountsByTarget.set(comment.targetId, current + 1);
+            });
+        } catch (error) {
+            state.commentCountsByTarget.clear();
+        }
+
+        renderCountSidebar();
+        renderFeeds();
     }
 
     async function fetchDecapPosts() {
@@ -710,13 +740,18 @@ window.communityFirebase = {
     async function refreshComments(targetId) {
         try {
             const comments = await firebaseBridge.firestore.listComments(targetId);
-            state.commentsByTarget.set(
-                targetId,
-                Array.isArray(comments) ? comments.map(normalizeDiscussionOrComment).filter(Boolean).sort(sortByCreatedAtDesc) : []
-            );
+            const normalized = Array.isArray(comments)
+                ? comments.map(normalizeDiscussionOrComment).filter(Boolean).sort(sortByCreatedAtDesc)
+                : [];
+
+            state.commentsByTarget.set(targetId, normalized);
+            state.commentCountsByTarget.set(targetId, normalized.length);
         } catch (error) {
             state.commentsByTarget.set(targetId, []);
+            state.commentCountsByTarget.set(targetId, 0);
         }
+
+        renderCountSidebar();
     }
 
     async function editDiscussion(itemId) {
@@ -838,6 +873,14 @@ window.communityFirebase = {
         if (discussionsTotal) {
             setText(discussionsTotal, String(state.discussions.length));
         }
+
+        if (commentsTotal) {
+            let totalComments = 0;
+            state.commentCountsByTarget.forEach((count) => {
+                totalComments += count;
+            });
+            setText(commentsTotal, String(totalComments));
+        }
     }
 
     function setAuthFormBusy(isBusy) {
@@ -933,8 +976,7 @@ window.communityFirebase = {
     }
 
     function getCommentCount(targetId) {
-        const comments = state.commentsByTarget.get(targetId);
-        return comments ? comments.length : 0;
+        return state.commentCountsByTarget.get(targetId) || 0;
     }
 
     function sanitizeExternalLink(value) {
@@ -1109,6 +1151,11 @@ window.communityFirebase = {
                 async listComments() {
                     // Firestore integration point:
                     // getDocs(query(collection(db, "comments"), where("targetId", "==", targetId)))
+                    return [];
+                },
+                async listAllComments() {
+                    // Firestore integration point:
+                    // getDocs(collection(db, "comments"))
                     return [];
                 },
                 async createDiscussion() {
